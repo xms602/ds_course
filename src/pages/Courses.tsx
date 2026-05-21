@@ -85,7 +85,8 @@ export default function Courses() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredCourses.map((course) => {
-            const progress = getCourseProgress(course.id);
+            const courseProgress = getCourseProgress(course.id);
+            const progress = Math.round((courseProgress.completedChapters.length / course.chapters.length) * 100);
             return (
               <Link
                 key={course.id}

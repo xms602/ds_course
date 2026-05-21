@@ -1,209 +1,308 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Course, UserProgress, Achievement } from '@/types';
+import { LearningState, PracticeRecord, WrongQuestion, PracticeQuestion } from '@/types';
+import { questionsData } from '@/data/questions';
 import { coursesData } from '@/data/coursesData';
 import { achievementsData } from '@/data/achievementsData';
 
 interface StoreState {
-  courses: Course[];
-  achievements: Achievement[];
-  userProgress: UserProgress[];
-  currentCourseId: string | null;
-  currentChapterId: string | null;
-  
-  setCurrentCourse: (courseId: string) => void;
-  setCurrentChapter: (chapterId: string) => void;
-  
-  completeChapter: (courseId: string, chapterId: string) => void;
-  completeExercise: (courseId: string, exerciseId: string) => void;
-  saveQuizScore: (courseId: string, score: number) => void;
+  learningState: LearningState;
+  courses: typeof coursesData;
+  achievements: typeof achievementsData;
+
+  setTheme: (theme: 'light' | 'dark') => void;
+  completeChapter: (chapterId: string) => void;
+  setCurrentChapter: (chapterId: string | null) => void;
+
+  recordPractice: (questionId: string, userAnswer: string | string[], isCorrect: boolean) => void;
+  addWrongQuestion: (questionId: string, userAnswer: string | string[], correctAnswer: string | string[]) => void;
+  removeWrongQuestion: (questionId: string) => void;
+
+  completeExercise: (courseId: string, chapterId: string, exerciseId: string) => void;
+  saveQuizScore: (courseId: string, chapterId: string, quizId: string, score: number) => void;
   unlockAchievement: (achievementId: string) => void;
-  
-  getCourseProgress: (courseId: string) => number;
+  markProjectComplete: (projectId: string) => void;
+
+  getChapterProgress: (chapterId: string) => boolean;
+  getTotalCompletedChapters: () => number;
+  getTotalChapters: () => number;
+  getOverallAccuracy: () => number;
+  getPracticeCount: () => number;
+  getWrongQuestionCount: () => number;
+  getChapterAccuracy: (chapterId: string) => number;
+  getKnowledgePointAccuracy: (knowledgePoint: string) => { correct: number; total: number };
+  getWrongQuestionsDetail: () => PracticeQuestion[];
+  getRecentPractice: (limit?: number) => PracticeRecord[];
+  getPracticeHistoryByChapter: (chapterId: string) => PracticeRecord[];
+  getCourseProgress: (courseId: string) => { completedChapters: string[]; quizScores: Record<string, number> };
+  getUnlockedAchievements: () => typeof achievementsData;
+  getProjectProgress: (projectId: string) => boolean;
   getTotalProgress: () => number;
-  getUnlockedAchievements: () => Achievement[];
+  userProgress: () => LearningState;
 }
+
+const initialState: LearningState = {
+  completedChapters: [],
+  currentChapterId: null,
+  chapterTimestamps: {},
+  practiceRecords: [],
+  wrongQuestions: [],
+  unlockedAchievements: [],
+  courseProgress: {},
+  projectProgress: {},
+  theme: 'light',
+};
 
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
+      learningState: initialState,
       courses: coursesData,
       achievements: achievementsData,
-      userProgress: [],
-      currentCourseId: null,
-      currentChapterId: null,
-      
-      setCurrentCourse: (courseId: string) => set({ currentCourseId: courseId }),
-      setCurrentChapter: (chapterId: string) => set({ currentChapterId: chapterId }),
-      
-      completeChapter: (courseId: string, chapterId: string) => {
-        set((state) => {
-          const existingProgress = state.userProgress.find(p => p.courseId === courseId);
-          let newProgress: UserProgress[];
-          
-          if (existingProgress) {
-            if (!existingProgress.completedChapters.includes(chapterId)) {
-              newProgress = state.userProgress.map(p => 
-                p.courseId === courseId 
-                  ? { ...p, completedChapters: [...p.completedChapters, chapterId] }
-                  : p
-              );
-            } else {
-              newProgress = state.userProgress;
-            }
-          } else {
-            newProgress = [...state.userProgress, {
-              courseId,
-              completedChapters: [chapterId],
-              completedExercises: [],
-              quizScores: {},
-              achievements: []
-            }];
-          }
-          
-          return { userProgress: newProgress };
-        });
-        
-        const state = get();
-        const courseProgress = state.getCourseProgress(courseId);
-        if (courseProgress === 100) {
-          state.unlockAchievement('first-course');
-        }
+
+      setTheme: (theme: 'light' | 'dark') => {
+        set((state) => ({
+          learningState: { ...state.learningState, theme },
+        }));
       },
-      
-      completeExercise: (courseId: string, exerciseId: string) => {
+
+      completeChapter: (chapterId: string) => {
         set((state) => {
-          const existingProgress = state.userProgress.find(p => p.courseId === courseId);
-          let newProgress: UserProgress[];
-          
-          if (existingProgress) {
-            if (!existingProgress.completedExercises.includes(exerciseId)) {
-              newProgress = state.userProgress.map(p => 
-                p.courseId === courseId 
-                  ? { ...p, completedExercises: [...p.completedExercises, exerciseId] }
-                  : p
-              );
-            } else {
-              newProgress = state.userProgress;
-            }
-          } else {
-            newProgress = [...state.userProgress, {
-              courseId,
-              completedChapters: [],
-              completedExercises: [exerciseId],
-              quizScores: {},
-              achievements: []
-            }];
+          const completed = [...state.learningState.completedChapters];
+          if (!completed.includes(chapterId)) {
+            completed.push(chapterId);
           }
-          
-          return { userProgress: newProgress };
+          return {
+            learningState: {
+              ...state.learningState,
+              completedChapters: completed,
+              chapterTimestamps: {
+                ...state.learningState.chapterTimestamps,
+                [chapterId]: Date.now(),
+              },
+            },
+          };
         });
       },
-      
-      saveQuizScore: (courseId: string, score: number) => {
+
+      setCurrentChapter: (chapterId: string | null) => {
+        set((state) => ({
+          learningState: { ...state.learningState, currentChapterId: chapterId },
+        }));
+      },
+
+      recordPractice: (questionId: string, userAnswer: string | string[], isCorrect: boolean) => {
         set((state) => {
-          const existingProgress = state.userProgress.find(p => p.courseId === courseId);
-          let newProgress: UserProgress[];
-          
-          if (existingProgress) {
-            newProgress = state.userProgress.map(p => 
-              p.courseId === courseId 
-                ? { ...p, quizScores: { ...p.quizScores, [courseId]: score } }
-                : p
+          const record: PracticeRecord = {
+            questionId,
+            userAnswer,
+            isCorrect,
+            timestamp: Date.now(),
+          };
+          return {
+            learningState: {
+              ...state.learningState,
+              practiceRecords: [...state.learningState.practiceRecords, record],
+            },
+          };
+        });
+      },
+
+      addWrongQuestion: (questionId: string, userAnswer: string | string[], correctAnswer: string | string[]) => {
+        set((state) => {
+          const existing = state.learningState.wrongQuestions.find(
+            (wq) => wq.questionId === questionId
+          );
+          let updated: WrongQuestion[];
+          if (existing) {
+            updated = state.learningState.wrongQuestions.map((wq) =>
+              wq.questionId === questionId
+                ? { ...wq, wrongCount: wq.wrongCount + 1, lastWrongTime: Date.now() }
+                : wq
             );
           } else {
-            newProgress = [...state.userProgress, {
-              courseId,
-              completedChapters: [],
-              completedExercises: [],
-              quizScores: { [courseId]: score },
-              achievements: []
-            }];
+            updated = [
+              ...state.learningState.wrongQuestions,
+              {
+                questionId,
+                userAnswer,
+                correctAnswer,
+                wrongCount: 1,
+                lastWrongTime: Date.now(),
+              },
+            ];
           }
-          
-          return { userProgress: newProgress };
+          return {
+            learningState: { ...state.learningState, wrongQuestions: updated },
+          };
         });
-        
-        const state = get();
-        state.unlockAchievement('first-quiz');
-        if (score === 100) {
-          state.unlockAchievement('perfect-score');
-        }
       },
-      
+
+      removeWrongQuestion: (questionId: string) => {
+        set((state) => ({
+          learningState: {
+            ...state.learningState,
+            wrongQuestions: state.learningState.wrongQuestions.filter(
+              (wq) => wq.questionId !== questionId
+            ),
+          },
+        }));
+      },
+
+      getChapterProgress: (chapterId: string) => {
+        return get().learningState.completedChapters.includes(chapterId);
+      },
+
+      getTotalCompletedChapters: () => {
+        return get().learningState.completedChapters.length;
+      },
+
+      getTotalChapters: () => {
+        return 16;
+      },
+
+      getOverallAccuracy: () => {
+        const { practiceRecords } = get().learningState;
+        if (practiceRecords.length === 0) return 0;
+        const correct = practiceRecords.filter((r) => r.isCorrect).length;
+        return Math.round((correct / practiceRecords.length) * 100);
+      },
+
+      getPracticeCount: () => {
+        return get().learningState.practiceRecords.length;
+      },
+
+      getWrongQuestionCount: () => {
+        return get().learningState.wrongQuestions.length;
+      },
+
+      getChapterAccuracy: (chapterId: string) => {
+        const { practiceRecords } = get().learningState;
+        const questionIds = questionsData
+          .filter((q) => q.chapterId === chapterId)
+          .map((q) => q.id);
+        const related = practiceRecords.filter((r) => questionIds.includes(r.questionId));
+        if (related.length === 0) return 0;
+        const correct = related.filter((r) => r.isCorrect).length;
+        return Math.round((correct / related.length) * 100);
+      },
+
+      getKnowledgePointAccuracy: (knowledgePoint: string) => {
+        const { practiceRecords } = get().learningState;
+        const questionIds = questionsData
+          .filter((q) => q.knowledgePoint === knowledgePoint)
+          .map((q) => q.id);
+        const related = practiceRecords.filter((r) => questionIds.includes(r.questionId));
+        const correct = related.filter((r) => r.isCorrect).length;
+        return { correct, total: related.length };
+      },
+
+      getWrongQuestionsDetail: () => {
+        const { wrongQuestions } = get().learningState;
+        return wrongQuestions
+          .map((wq) => questionsData.find((q) => q.id === wq.questionId))
+          .filter((q): q is PracticeQuestion => q !== undefined);
+      },
+
+      getRecentPractice: (limit = 20) => {
+        const { practiceRecords } = get().learningState;
+        return [...practiceRecords]
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, limit);
+      },
+
+      getPracticeHistoryByChapter: (chapterId: string) => {
+        const { practiceRecords } = get().learningState;
+        const questionIds = questionsData
+          .filter((q) => q.chapterId === chapterId)
+          .map((q) => q.id);
+        return practiceRecords.filter((r) => questionIds.includes(r.questionId));
+      },
+
+      completeExercise: (courseId: string, chapterId: string, exerciseId: string) => {
+        set((state) => {
+          const courseProgress = state.learningState.courseProgress[courseId] || { completedChapters: [], quizScores: {} };
+          const completedChapters = courseProgress.completedChapters.includes(chapterId) 
+            ? courseProgress.completedChapters 
+            : [...courseProgress.completedChapters, chapterId];
+          return {
+            learningState: {
+              ...state.learningState,
+              courseProgress: {
+                ...state.learningState.courseProgress,
+                [courseId]: { ...courseProgress, completedChapters },
+              },
+            },
+          };
+        });
+      },
+
+      saveQuizScore: (courseId: string, chapterId: string, quizId: string, score: number) => {
+        set((state) => {
+          const courseProgress = state.learningState.courseProgress[courseId] || { completedChapters: [], quizScores: {} };
+          return {
+            learningState: {
+              ...state.learningState,
+              courseProgress: {
+                ...state.learningState.courseProgress,
+                [courseId]: {
+                  ...courseProgress,
+                  quizScores: { ...courseProgress.quizScores, [quizId]: score },
+                },
+              },
+            },
+          };
+        });
+      },
+
       unlockAchievement: (achievementId: string) => {
         set((state) => {
-          const achievement = state.achievements.find(a => a.id === achievementId);
-          if (achievement && !achievement.unlocked) {
-            const newAchievements = state.achievements.map(a => 
-              a.id === achievementId 
-                ? { ...a, unlocked: true, unlockedAt: new Date().toISOString() }
-                : a
-            );
-            
-            const isFirstAchievement = !state.achievements.some(a => a.unlocked);
-            if (isFirstAchievement && achievementId !== 'first-achievement') {
-              setTimeout(() => {
-                const currentState = get();
-                if (!currentState.achievements.find(a => a.id === 'first-achievement')?.unlocked) {
-                  currentState.unlockAchievement('first-achievement');
-                }
-              }, 100);
-            }
-            
-            const unlockedCount = newAchievements.filter(a => a.unlocked).length;
-            if (unlockedCount >= 5) {
-              setTimeout(() => {
-                const currentState = get();
-                if (!currentState.achievements.find(a => a.id === 'five-achievements')?.unlocked) {
-                  currentState.unlockAchievement('five-achievements');
-                }
-              }, 200);
-            }
-            
-            return { achievements: newAchievements };
+          if (!state.learningState.unlockedAchievements.includes(achievementId)) {
+            return {
+              learningState: {
+                ...state.learningState,
+                unlockedAchievements: [...state.learningState.unlockedAchievements, achievementId],
+              },
+            };
           }
           return state;
         });
       },
-      
+
+      markProjectComplete: (projectId: string) => {
+        set((state) => ({
+          learningState: {
+            ...state.learningState,
+            projectProgress: { ...state.learningState.projectProgress, [projectId]: true },
+          },
+        }));
+      },
+
       getCourseProgress: (courseId: string) => {
-        const state = get();
-        const course = state.courses.find(c => c.id === courseId);
-        const progress = state.userProgress.find(p => p.courseId === courseId);
-        
-        if (!course || !progress) return 0;
-        
-        const totalChapters = course.chapters.length;
-        const completedChapters = progress.completedChapters.length;
-        
-        return totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
+        return get().learningState.courseProgress[courseId] || { completedChapters: [], quizScores: {} };
       },
-      
-      getTotalProgress: () => {
-        const state = get();
-        let totalChapters = 0;
-        let completedChapters = 0;
-        
-        state.courses.forEach(course => {
-          totalChapters += course.chapters.length;
-          const progress = state.userProgress.find(p => p.courseId === course.id);
-          if (progress) {
-            completedChapters += progress.completedChapters.length;
-          }
-        });
-        
-        return totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
-      },
-      
+
       getUnlockedAchievements: () => {
-        const state = get();
-        return state.achievements.filter(a => a.unlocked);
-      }
+        const { unlockedAchievements } = get().learningState;
+        return achievementsData.filter((a) => unlockedAchievements.includes(a.id));
+      },
+
+      getProjectProgress: (projectId: string) => {
+        return get().learningState.projectProgress[projectId] || false;
+      },
+
+      getTotalProgress: () => {
+        const totalChapters = 16;
+        const completed = get().learningState.completedChapters.length;
+        return Math.round((completed / totalChapters) * 100);
+      },
+
+      userProgress: () => {
+        return get().learningState;
+      },
     }),
     {
-      name: 'business-analytics-storage'
+      name: 'python-learning-storage',
     }
   )
 );

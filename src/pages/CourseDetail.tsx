@@ -5,7 +5,7 @@ import { useStore } from '@/store/useStore';
 
 export default function CourseDetail() {
   const { id } = useParams<{ id: string }>();
-  const { courses, getCourseProgress, userProgress } = useStore();
+  const { courses, getCourseProgress } = useStore();
   const course = courses.find(c => c.id === id);
 
   if (!course) {
@@ -21,8 +21,8 @@ export default function CourseDetail() {
     );
   }
 
-  const progress = getCourseProgress(course.id);
-  const courseProgress = userProgress.find(p => p.courseId === course.id);
+  const courseProgress = getCourseProgress(course.id);
+  const progress = Math.round((courseProgress.completedChapters.length / course.chapters.length) * 100);
 
   const getDifficultyLabel = (difficulty: string) => {
     switch (difficulty) {
@@ -128,13 +128,13 @@ export default function CourseDetail() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">已完成章节</span>
                 <span className="font-medium text-gray-900">
-                  {courseProgress?.completedChapters.length || 0} / {course.chapters.length}
+                  {courseProgress.completedChapters.length || 0} / {course.chapters.length}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">已完成练习</span>
+                <span className="text-gray-600">测验得分</span>
                 <span className="font-medium text-gray-900">
-                  {courseProgress?.completedExercises.length || 0}
+                  {Object.keys(courseProgress.quizScores).length} 次
                 </span>
               </div>
             </div>

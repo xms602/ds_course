@@ -1,6 +1,6 @@
 
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, GraduationCap, Trophy, User, Home } from 'lucide-react';
+import { BookOpen, GraduationCap, Trophy, User, Home, Code, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Layout() {
@@ -9,6 +9,8 @@ export default function Layout() {
   const navItems = [
     { path: '/', label: '首页', icon: Home },
     { path: '/courses', label: '课程', icon: BookOpen },
+    { path: '/practice', label: '练习', icon: CheckSquare },
+    { path: '/projects', label: '项目', icon: Code },
     { path: '/achievements', label: '成就', icon: Trophy },
     { path: '/profile', label: '我的', icon: User }
   ];

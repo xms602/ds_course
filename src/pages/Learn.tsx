@@ -3,15 +3,16 @@ import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import Editor from '@monaco-editor/react';
 
 export default function Learn() {
   const { courseId, chapterId } = useParams<{ courseId: string; chapterId: string }>();
   const navigate = useNavigate();
-  const { courses, userProgress, completeChapter, completeExercise } = useStore();
+  const { courses, getCourseProgress, completeChapter, completeExercise } = useStore();
   
   const course = courses.find(c => c.id === courseId);
   const chapter = course?.chapters.find(ch => ch.id === chapterId);
-  const courseProgress = userProgress.find(p => p.courseId === courseId);
+  const courseProgress = getCourseProgress(courseId || '');
   
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string]: string }>({});
@@ -37,8 +38,38 @@ export default function Learn() {
   const prevChapter = currentChapterIndex > 0 ? course.chapters[currentChapterIndex - 1] : null;
   const nextChapter = currentChapterIndex < course.chapters.length - 1 ? course.chapters[currentChapterIndex + 1] : null;
 
+  const [userCode, setUserCode] = useState<{ [key: string]: string }>({});
+  const [codeOutput, setCodeOutput] = useState<{ [key: string]: string }>({});
+  const [isRunningCode, setIsRunningCode] = useState<{ [key: string]: boolean }>({});
+
   const handleExerciseAnswer = (exerciseId: string, answer: string) => {
     setSelectedAnswers(prev => ({ ...prev, [exerciseId]: answer }));
+  };
+
+  const handleCodeChange = (exerciseId: string, code: string) => {
+    setUserCode(prev => ({ ...prev, [exerciseId]: code }));
+  };
+
+  const runCode = async (exerciseId: string) => {
+    const exercise = chapter.exercises.find(e => e.id === exerciseId);
+    if (!exercise || !exercise.codeTemplate) return;
+
+    setIsRunningCode(prev => ({ ...prev, [exerciseId]: true }));
+    setCodeOutput(prev => ({ ...prev, [exerciseId]: '运行中...' }));
+
+    try {
+      const { runPythonCode } = await import('@/lib/pyodide');
+      const result = await runPythonCode(userCode[exerciseId] || exercise.codeTemplate);
+      if (result.success) {
+        setCodeOutput(prev => ({ ...prev, [exerciseId]: result.result ? result.result.toString() : '代码执行成功' }));
+      } else {
+        setCodeOutput(prev => ({ ...prev, [exerciseId]: `错误: ${result.error}` }));
+      }
+    } catch (error) {
+      setCodeOutput(prev => ({ ...prev, [exerciseId]: `执行错误: ${error}` }));
+    } finally {
+      setIsRunningCode(prev => ({ ...prev, [exerciseId]: false }));
+    }
   };
 
   const checkExerciseAnswer = (exerciseId: string) => {
@@ -47,15 +78,21 @@ export default function Learn() {
 
     setShowExplanation(prev => ({ ...prev, [exerciseId]: true }));
     
-    const isCorrect = selectedAnswers[exerciseId] === exercise.correctAnswer;
-    if (isCorrect && !courseProgress?.completedExercises.includes(exerciseId)) {
-      completeExercise(course.id, exerciseId);
+    if (exercise.type === 'multiple-choice') {
+      const isCorrect = selectedAnswers[exerciseId] === exercise.correctAnswer;
+      if (isCorrect && !courseProgress?.completedChapters.includes(chapterId || '')) {
+        completeExercise(course.id, chapterId || '', exerciseId);
+      }
+    } else if (exercise.type === 'coding') {
+      if (!courseProgress?.completedChapters.includes(chapterId || '')) {
+        completeExercise(course.id, chapterId || '', exerciseId);
+      }
     }
   };
 
   const handleCompleteChapter = () => {
     if (!isChapterCompleted) {
-      completeChapter(course.id, chapter.id);
+      completeChapter(chapter.id);
       setIsChapterCompleted(true);
     }
   };
@@ -151,10 +188,13 @@ export default function Learn() {
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">互动练习</h2>
                 <div className="space-y-6">
                   {chapter.exercises.map((exercise, index) => {
-                    const isCompleted = courseProgress?.completedExercises.includes(exercise.id);
+                    const isCompleted = courseProgress?.completedChapters.includes(chapterId || '');
                     const userAnswer = selectedAnswers[exercise.id];
                     const showExp = showExplanation[exercise.id];
                     const isCorrect = userAnswer === exercise.correctAnswer;
+                    const code = userCode[exercise.id] || exercise.codeTemplate;
+                    const output = codeOutput[exercise.id];
+                    const running = isRunningCode[exercise.id];
 
                     return (
                       <div key={exercise.id} className={`p-6 rounded-xl border ${isCompleted ? 'border-green-200 bg-green-50' : 'border-gray-200'}`}>
@@ -195,7 +235,48 @@ export default function Learn() {
                           </div>
                         )}
 
-                        {!showExp && userAnswer && (
+                        {exercise.type === 'coding' && exercise.codeTemplate && (
+                          <div className="space-y-4">
+                            <div className="bg-gray-50 rounded-lg p-1 border border-gray-200">
+                              <Editor
+                                height="400px"
+                                language="python"
+                                value={code}
+                                onChange={(newValue) => handleCodeChange(exercise.id, newValue || '')}
+                                options={{
+                                  minimap: { enabled: true },
+                                  lineNumbers: 'on',
+                                  scrollBeyondLastLine: false,
+                                  fontSize: 14,
+                                  tabSize: 4,
+                                  automaticLayout: true
+                                }}
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => runCode(exercise.id)}
+                                disabled={running}
+                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {running ? '运行中...' : '运行代码'}
+                              </button>
+                              <button
+                                onClick={() => checkExerciseAnswer(exercise.id)}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                标记完成
+                              </button>
+                            </div>
+                            {output && (
+                              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                <pre className="text-sm whitespace-pre-wrap">{output}</pre>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {exercise.type === 'multiple-choice' && !showExp && userAnswer && (
                           <button
                             onClick={() => checkExerciseAnswer(exercise.id)}
                             className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -204,10 +285,18 @@ export default function Learn() {
                           </button>
                         )}
 
-                        {showExp && (
+                        {showExp && exercise.type === 'multiple-choice' && (
                           <div className={`mt-4 p-4 rounded-lg ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                             <p className="font-medium mb-2">{isCorrect ? '✓ 回答正确！' : '✗ 回答错误'}</p>
                             <p className="text-sm">{exercise.explanation}</p>
+                          </div>
+                        )}
+
+                        {showExp && exercise.type === 'coding' && exercise.correctCode && (
+                          <div className="mt-4 p-4 bg-green-100 text-green-800 rounded-lg">
+                            <p className="font-medium mb-2">参考解答：</p>
+                            <pre className="text-sm bg-white p-3 rounded-lg overflow-x-auto">{exercise.correctCode}</pre>
+                            <p className="mt-3 text-sm">{exercise.explanation}</p>
                           </div>
                         )}
                       </div>

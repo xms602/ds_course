@@ -6,10 +6,10 @@ import { useStore } from '@/store/useStore';
 
 export default function Quiz() {
   const { courseId } = useParams<{ courseId: string }>();
-  const { courses, userProgress, saveQuizScore } = useStore();
+  const { courses, getCourseProgress, saveQuizScore } = useStore();
   
   const course = courses.find(c => c.id === courseId);
-  const courseProgress = userProgress.find(p => p.courseId === courseId);
+  const courseProgress = getCourseProgress(courseId || '');
   
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<{ [key: string]: string }>({});
@@ -67,7 +67,9 @@ export default function Quiz() {
 
   const handleSubmit = () => {
     const score = calculateScore();
-    saveQuizScore(course.id, score);
+    allQuestions.forEach(q => {
+      saveQuizScore(course.id, q.id, q.id, answers[q.id] === q.correctAnswer ? q.points : 0);
+    });
     setIsSubmitted(true);
   };
 

@@ -15,12 +15,17 @@ export default function Profile() {
   const totalProgress = getTotalProgress();
   const unlockedAchievements = getUnlockedAchievements();
   
+  const getProgressPercent = (courseId: string) => {
+    const progress = getCourseProgress(courseId);
+    return Math.round((progress.completedChapters.length / courses.find(c => c.id === courseId)?.chapters.length || 1) * 100);
+  };
+  
   const coursesInProgress = courses.filter(course => {
-    const progress = getCourseProgress(course.id);
+    const progress = getProgressPercent(course.id);
     return progress > 0 && progress < 100;
   });
   
-  const completedCourses = courses.filter(course => getCourseProgress(course.id) === 100);
+  const completedCourses = courses.filter(course => getProgressPercent(course.id) === 100);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -62,7 +67,7 @@ export default function Profile() {
           <div className="text-center p-6 bg-purple-50 rounded-xl">
             <div className="text-4xl font-bold text-purple-600 mb-2">
               {courses.reduce((total, course) => {
-                const progress = getCourseProgress(course.id);
+                const progress = getProgressPercent(course.id);
                 return total + Math.round(course.estimatedHours * (progress / 100));
               }, 0)}
             </div>
@@ -84,7 +89,7 @@ export default function Profile() {
           </div>
           <div className="grid md:grid-cols-2 gap-6">
             {coursesInProgress.map((course) => {
-              const progress = getCourseProgress(course.id);
+              const progress = getProgressPercent(course.id);
               return (
                 <Link
                   key={course.id}

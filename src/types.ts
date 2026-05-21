@@ -1,3 +1,85 @@
+export interface Chapter {
+  id: string;
+  title: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  content: string;
+  codeExamples: CodeExample[];
+  exercises: ChapterExercise[];
+}
+
+export interface CodeExample {
+  id: string;
+  code: string;
+  explanation?: string;
+  canRun?: boolean;
+}
+
+export interface ChapterExercise {
+  id: string;
+  type: 'single-choice' | 'multiple-choice';
+  question: string;
+  options: string[];
+  correctAnswer: string | string[];
+  explanation: string;
+}
+
+export interface PracticeQuestion {
+  id: string;
+  chapterId: string;
+  chapterTitle: string;
+  knowledgePoint: string;
+  type: 'single-choice' | 'multiple-choice' | 'coding';
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  question: string;
+  options?: string[];
+  correctAnswer: string | string[];
+  explanation: string;
+  codeTemplate?: string;
+  expectedOutput?: string;
+}
+
+export interface PracticeRecord {
+  questionId: string;
+  userAnswer: string | string[];
+  isCorrect: boolean;
+  timestamp: number;
+}
+
+export interface WrongQuestion {
+  questionId: string;
+  userAnswer: string | string[];
+  correctAnswer: string | string[];
+  wrongCount: number;
+  lastWrongTime: number;
+}
+
+export interface CourseChapter {
+  id: string;
+  title: string;
+  content: string;
+  exercises: CourseExercise[];
+  quiz: CourseQuiz[];
+}
+
+export interface CourseExercise {
+  id: string;
+  type: 'multiple-choice' | 'coding';
+  question: string;
+  options?: string[];
+  codeTemplate?: string;
+  correctCode?: string;
+  correctAnswer?: string | string[];
+  explanation: string;
+}
+
+export interface CourseQuiz {
+  id: string;
+  type: 'multiple-choice' | 'true-false';
+  question: string;
+  options?: string[];
+  correctAnswer: string | string[];
+  points: number;
+}
 
 export interface Course {
   id: string;
@@ -5,35 +87,9 @@ export interface Course {
   description: string;
   category: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
-  chapters: Chapter[];
-  thumbnail: string;
   estimatedHours: number;
-}
-
-export interface Chapter {
-  id: string;
-  title: string;
-  content: string;
-  exercises: Exercise[];
-  quiz: QuizQuestion[];
-}
-
-export interface Exercise {
-  id: string;
-  type: 'multiple-choice' | 'coding' | 'matching';
-  question: string;
-  options?: string[];
-  correctAnswer: string | string[];
-  explanation: string;
-}
-
-export interface QuizQuestion {
-  id: string;
-  type: 'multiple-choice' | 'true-false' | 'short-answer';
-  question: string;
-  options?: string[];
-  correctAnswer: string | string[];
-  points: number;
+  thumbnail: string;
+  chapters: CourseChapter[];
 }
 
 export interface Achievement {
@@ -42,13 +98,17 @@ export interface Achievement {
   description: string;
   icon: string;
   unlocked: boolean;
-  unlockedAt?: string;
+  unlockedAt?: number;
 }
 
-export interface UserProgress {
-  courseId: string;
+export interface LearningState {
   completedChapters: string[];
-  completedExercises: string[];
-  quizScores: { [quizId: string]: number };
-  achievements: string[];
+  currentChapterId: string | null;
+  chapterTimestamps: Record<string, number>;
+  practiceRecords: PracticeRecord[];
+  wrongQuestions: WrongQuestion[];
+  unlockedAchievements: string[];
+  courseProgress: Record<string, { completedChapters: string[]; quizScores: Record<string, number> }>;
+  projectProgress: Record<string, boolean>;
+  theme: 'light' | 'dark';
 }
