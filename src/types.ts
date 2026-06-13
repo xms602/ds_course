@@ -69,7 +69,8 @@ export interface CourseExercise {
   codeTemplate?: string;
   correctCode?: string;
   correctAnswer?: string | string[];
-  explanation: string;
+  explanation?: string;
+  points?: number;
 }
 
 export interface CourseQuiz {
