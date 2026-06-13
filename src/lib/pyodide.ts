@@ -9,18 +9,19 @@ export async function initPyodide() {
   
   try {
     pyodide = await loadPyodide({
-      indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/'
+      indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.29.3/full/'
     });
     
-    // 预装核心库
+    // 预装核心库（只加载可用的核心库）
     await pyodide.loadPackage([
-      'pandas', 'numpy', 'matplotlib', 'seaborn', 'scikit-learn', 'mlxtend'
+      'pandas', 'numpy', 'matplotlib'
     ]);
     
     // 配置matplotlib，使其在前端渲染
     pyodide.runPython(`
       import matplotlib.pyplot as plt
-      plt.rcParams['font.sans-serif'] = ['WenQuanYi Zen Hei']
+      import matplotlib
+      matplotlib.use('Agg')
       plt.ioff()
     `);
     
@@ -53,10 +54,12 @@ export async function generateChart(code: string) {
     const chartData = py.runPython(`
       import base64
       from io import BytesIO
+      import matplotlib.pyplot as plt
       buffer = BytesIO()
       plt.savefig(buffer, format='png')
       buffer.seek(0)
       img_str = base64.b64encode(buffer.read()).decode('utf-8')
+      plt.close()
       img_str
     `);
     

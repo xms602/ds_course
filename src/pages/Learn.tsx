@@ -1,7 +1,7 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import Editor from '@monaco-editor/react';
 
@@ -20,6 +20,33 @@ export default function Learn() {
   const [isChapterCompleted, setIsChapterCompleted] = useState(
     courseProgress?.completedChapters.includes(chapterId || '') || false
   );
+  const [pyodideReady, setPyodideReady] = useState(false);
+  const [pyodideLoading, setPyodideLoading] = useState(false);
+
+  // 预加载Pyodide
+  useEffect(() => {
+    let mounted = true;
+    const loadPyodide = async () => {
+      if (!mounted || pyodideReady) return;
+      setPyodideLoading(true);
+      try {
+        const { initPyodide } = await import('@/lib/pyodide');
+        await initPyodide();
+        if (mounted) {
+          setPyodideReady(true);
+        }
+      } catch (error) {
+        console.error('Pyodide加载失败:', error);
+      } finally {
+        if (mounted) {
+          setPyodideLoading(false);
+        }
+      }
+    };
+    
+    loadPyodide();
+    return () => { mounted = false; };
+  }, [pyodideReady]);
 
   if (!course || !chapter) {
     return (
@@ -55,18 +82,24 @@ export default function Learn() {
     if (!exercise || !exercise.codeTemplate) return;
 
     setIsRunningCode(prev => ({ ...prev, [exerciseId]: true }));
-    setCodeOutput(prev => ({ ...prev, [exerciseId]: '运行中...' }));
+    setCodeOutput(prev => ({ ...prev, [exerciseId]: '⏳ 正在初始化Python环境...' }));
 
     try {
       const { runPythonCode } = await import('@/lib/pyodide');
+      setCodeOutput(prev => ({ ...prev, [exerciseId]: '🚀 执行中...' }));
       const result = await runPythonCode(userCode[exerciseId] || exercise.codeTemplate);
       if (result.success) {
-        setCodeOutput(prev => ({ ...prev, [exerciseId]: result.result ? result.result.toString() : '代码执行成功' }));
+        setCodeOutput(prev => ({ 
+          ...prev, 
+          [exerciseId]: result.result !== undefined && result.result !== null 
+            ? String(result.result) 
+            : '✅ 代码执行成功' 
+        }));
       } else {
-        setCodeOutput(prev => ({ ...prev, [exerciseId]: `错误: ${result.error}` }));
+        setCodeOutput(prev => ({ ...prev, [exerciseId]: `❌ 错误: ${result.error}` }));
       }
-    } catch (error) {
-      setCodeOutput(prev => ({ ...prev, [exerciseId]: `执行错误: ${error}` }));
+    } catch (error: any) {
+      setCodeOutput(prev => ({ ...prev, [exerciseId]: `❌ 执行错误: ${error.message || error}` }));
     } finally {
       setIsRunningCode(prev => ({ ...prev, [exerciseId]: false }));
     }
@@ -237,6 +270,16 @@ export default function Learn() {
 
                         {exercise.type === 'coding' && exercise.codeTemplate && (
                           <div className="space-y-4">
+                            {/* Pyodide状态提示 */}
+                            {(pyodideLoading || !pyodideReady) && (
+                              <div className="flex items-center gap-2 p-3 bg-yellow-50 text-yellow-700 rounded-lg">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span className="text-sm">
+                                  {pyodideLoading ? '正在加载Python环境...' : '准备Python环境中，请稍候...'}
+                                </span>
+                              </div>
+                            )}
+                            
                             <div className="bg-gray-50 rounded-lg p-1 border border-gray-200">
                               <Editor
                                 height="400px"
@@ -244,22 +287,30 @@ export default function Learn() {
                                 value={code}
                                 onChange={(newValue) => handleCodeChange(exercise.id, newValue || '')}
                                 options={{
-                                  minimap: { enabled: true },
+                                  minimap: { enabled: false },
                                   lineNumbers: 'on',
                                   scrollBeyondLastLine: false,
                                   fontSize: 14,
                                   tabSize: 4,
-                                  automaticLayout: true
+                                  automaticLayout: true,
+                                  readOnly: !pyodideReady
                                 }}
                               />
                             </div>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => runCode(exercise.id)}
-                                disabled={running}
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={running || !pyodideReady}
+                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                               >
-                                {running ? '运行中...' : '运行代码'}
+                                {running ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    运行中...
+                                  </>
+                                ) : (
+                                  '运行代码'
+                                )}
                               </button>
                               <button
                                 onClick={() => checkExerciseAnswer(exercise.id)}
@@ -269,8 +320,8 @@ export default function Learn() {
                               </button>
                             </div>
                             {output && (
-                              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                                <pre className="text-sm whitespace-pre-wrap">{output}</pre>
+                              <div className="mt-4 p-4 bg-gray-900 rounded-lg">
+                                <pre className="text-sm whitespace-pre-wrap text-green-400">{output}</pre>
                               </div>
                             )}
                           </div>

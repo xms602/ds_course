@@ -1,17 +1,27 @@
 
 import { Link } from 'react-router-dom';
-import { BookOpen, TrendingUp, Trophy, Brain, Zap, Cpu, Database, LineChart, Sparkles, Clock, ChevronRight, ArrowRight, Layers, GraduationCap, Rocket, Code } from 'lucide-react';
+import { BookOpen, TrendingUp, Trophy, Brain, Zap, Cpu, Database, LineChart, Sparkles, Clock, ChevronRight, ArrowRight, Layers, GraduationCap, Rocket, Code, Target, Lightbulb, Bot, Cog, BarChart3, PieChart } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import { chaptersData } from '@/data/chapters';
+import { coursesData } from '@/data/coursesData';
 
 export default function Home() {
-  const { getTotalCompletedChapters, getTotalChapters, getOverallAccuracy, getPracticeCount } = useStore();
+  const { courses, getTotalCompletedChapters, getTotalChapters, getOverallAccuracy, getPracticeCount, getCourseProgress } = useStore();
   
-  const totalProgress = Math.round((getTotalCompletedChapters() / getTotalChapters()) * 100);
+  // 计算总体进度
+  const totalChaptersCount = courses.reduce((sum, course) => sum + course.chapters.length, 0);
+  const completedChaptersCount = courses.reduce((sum, course) => {
+    const progress = getCourseProgress(course.id);
+    return sum + progress.completedChapters.length;
+  }, 0);
+  
+  const totalProgress = totalChaptersCount > 0 ? Math.round((completedChaptersCount / totalChaptersCount) * 100) : 0;
   const completedChapters = getTotalCompletedChapters();
   const totalChapters = getTotalChapters();
   const overallAccuracy = getOverallAccuracy();
   const practiceCount = getPracticeCount();
+  
+  // 随机展示一些课程
+  const featuredCourses = courses.slice(0, 6);
 
   const stages = [
     {
@@ -133,73 +143,146 @@ export default function Home() {
             <BookOpen className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">全部课程</h2>
-            <p className="text-gray-600">{chaptersData.length} 个章节等你来学</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">精选课程</h2>
+            <p className="text-gray-600">{courses.length} 个完整课程等你来学</p>
           </div>
         </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {chaptersData.slice(0, 8).map((chapter, index) => (
-            <Link
-              key={chapter.id}
-              to={`/courses`}
-              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 group border border-gray-100 transform hover:-translate-y-1"
-            >
-              <div className="h-32 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-black/10"></div>
-                <div className="text-white text-5xl font-bold opacity-20 absolute">
-                  {String(index + 1).padStart(2, '0')}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {featuredCourses.map((course) => {
+            const courseProgress = getCourseProgress(course.id);
+            const progress = Math.round((courseProgress.completedChapters.length / course.chapters.length) * 100);
+            return (
+              <Link
+                key={course.id}
+                to={`/courses/${course.id}`}
+                className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 group border border-gray-100 transform hover:-translate-y-1"
+              >
+                <div className="h-40 overflow-hidden relative">
+                  <img
+                    src={course.thumbnail}
+                    alt={course.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                  {progress > 0 && (
+                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-black/40">
+                      <div className="w-full bg-white/30 rounded-full h-1.5">
+                        <div
+                          className="bg-green-400 h-1.5 rounded-full transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <Code className="h-12 w-12 text-white relative z-10" />
-              </div>
-              <div className="p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">{chapter.title}</h3>
-                <p className="text-gray-600 text-sm line-clamp-2">{chapter.content.split('\n')[0].replace('# ', '')}</p>
-                <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    <span>30 分钟</span>
+                <div className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                      {course.category}
+                    </span>
+                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
+                      {course.difficulty === 'beginner' ? '初级' : course.difficulty === 'intermediate' ? '中级' : '高级'}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <BookOpen className="h-3 w-3" />
-                    <span>{chapter.exercises.length} 练习</span>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-1">{course.title}</h3>
+                  <p className="text-gray-600 text-sm line-clamp-2 mb-3">{course.description}</p>
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      <span>{course.estimatedHours}小时</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <BookOpen className="h-3 w-3" />
+                      <span>{course.chapters.length}章节</span>
+                    </div>
+                    {progress > 0 && (
+                      <span className="text-green-600 font-medium">{progress}%完成</span>
+                    )}
                   </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
         <div className="mt-8 text-center">
           <Link
             to="/courses"
             className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
           >
-            查看全部课程
+            查看全部 {courses.length} 个课程
             <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
       </section>
 
-      <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+      {/* AI赋能实战示例 */}
+      <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-2xl shadow-2xl p-8 text-white backdrop-blur-sm border border-white/10">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl -mr-20 -mt-20"></div>
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-400/20 rounded-full blur-2xl -ml-16 -mb-16"></div>
-          
-          <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-            <div className="flex-1">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full mb-4">
-                <Sparkles className="h-4 w-4" />
-                <span className="text-sm font-medium">AI 赋能学习</span>
-              </div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-4">AI是加速器，而非替代品</h2>
-              <p className="text-blue-100 leading-relaxed">
-                AI工具通过自动化繁琐步骤，让你能将更多精力聚焦于业务理解、逻辑构建和决策建议，更快地进入"用数据讲故事"的核心环节。
-              </p>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+              <Bot className="h-5 w-5" />
             </div>
-            <div className="w-40 h-40 flex-shrink-0 relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full blur-xl opacity-40 animate-pulse"></div>
-              <Brain className="relative z-10 h-full w-full text-white drop-shadow-lg" />
+            <div>
+              <h2 className="text-2xl font-bold">AI 赋能数据分析实战</h2>
+              <p className="text-blue-100 text-sm">让AI成为你的数据分析助手</p>
             </div>
           </div>
+          
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="bg-white/10 rounded-xl p-4 hover:bg-white/20 transition-colors">
+              <div className="flex items-center gap-2 mb-2">
+                <Lightbulb className="h-5 w-5 text-yellow-300" />
+                <h3 className="font-semibold">智能代码补全</h3>
+              </div>
+              <p className="text-sm text-blue-100">
+                AI根据你的数据分析需求，自动补全Pandas、NumPy代码，大幅提升编程效率
+              </p>
+            </div>
+            
+            <div className="bg-white/10 rounded-xl p-4 hover:bg-white/20 transition-colors">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart3 className="h-5 w-5 text-green-300" />
+                <h3 className="font-semibold">可视化方案生成</h3>
+              </div>
+              <p className="text-sm text-blue-100">
+                描述你的数据特点，AI推荐最合适的图表类型，一键生成专业可视化代码
+              </p>
+            </div>
+            
+            <div className="bg-white/10 rounded-xl p-4 hover:bg-white/20 transition-colors">
+              <div className="flex items-center gap-2 mb-2">
+                <Cog className="h-5 w-5 text-orange-300" />
+                <h3 className="font-semibold">数据清洗自动化</h3>
+              </div>
+              <p className="text-sm text-blue-100">
+                AI识别数据质量问题，自动推荐清洗策略，处理缺失值、异常值不再头疼
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      {/* 学习路径 */}
+      <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">学习路径</h2>
+          <p className="text-gray-600">系统化掌握数据分析技能</p>
+        </div>
+        <div className="grid md:grid-cols-4 gap-4">
+          {[
+            { icon: GraduationCap, title: '预习阶段', desc: '了解数据分析全景', color: 'from-blue-500 to-cyan-500' },
+            { icon: Code, title: '学习阶段', desc: '掌握Python数据分析', color: 'from-purple-500 to-pink-500' },
+            { icon: BarChart3, title: '实战阶段', desc: '完成10个实战项目', color: 'from-orange-500 to-red-500' },
+            { icon: Trophy, title: '提升阶段', desc: '持续进阶与职业发展', color: 'from-green-500 to-emerald-500' }
+          ].map((stage, index) => (
+            <div key={index} className="bg-white rounded-xl shadow-md p-6 text-center hover:shadow-lg transition-shadow">
+              <div className={`w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br ${stage.color} flex items-center justify-center`}>
+                <stage.icon className="h-8 w-8 text-white" />
+              </div>
+              <h3 className="font-bold text-gray-900 mb-1">{stage.title}</h3>
+              <p className="text-sm text-gray-600">{stage.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
     </div>
