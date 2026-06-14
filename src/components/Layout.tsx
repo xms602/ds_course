@@ -16,18 +16,22 @@ export default function Layout() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
+    <div className="min-h-screen">
+      <nav className="bg-white/95 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link to="/" className="flex items-center gap-2">
-                <GraduationCap className="h-8 w-8 text-blue-600" />
-                <span className="text-xl font-bold text-gray-900">商析学堂</span>
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#667eea] to-[#764ba2] flex items-center justify-center">
+                  <GraduationCap className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-xl font-bold bg-gradient-to-r from-[#667eea] to-[#764ba2] bg-clip-text text-transparent">
+                  商析学堂
+                </span>
               </Link>
             </div>
-            
-            <div className="hidden md:flex items-center space-x-8">
+
+            <div className="hidden md:flex items-center space-x-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -36,10 +40,10 @@ export default function Layout() {
                     key={item.path}
                     to={item.path}
                     className={cn(
-                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                      'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all',
                       isActive
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        ? 'bg-gradient-to-r from-[#667eea] to-[#764ba2] text-white shadow-md shadow-purple-200'
+                        : 'text-gray-600 hover:text-white hover:bg-gradient-to-r from-[#667eea] to-[#764ba2]'
                     )}
                   >
                     <Icon className="h-4 w-4" />
@@ -52,11 +56,11 @@ export default function Layout() {
         </div>
       </nav>
 
-      <main className="pb-20 md:pb-8">
+      <main className="pb-20 md:pb-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Outlet />
       </main>
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t shadow-xl z-50">
         <div className="flex justify-around py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -66,9 +70,9 @@ export default function Layout() {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  'flex flex-col items-center py-2 px-4 rounded-lg transition-colors',
+                  'flex flex-col items-center py-2 px-3 rounded-xl transition-colors',
                   isActive
-                    ? 'text-blue-600'
+                    ? 'text-[#667eea]'
                     : 'text-gray-500'
                 )}
               >

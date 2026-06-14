@@ -79,11 +79,13 @@ export interface CourseQuiz {
   question: string;
   options?: string[];
   correctAnswer: string | string[];
+  explanation?: string;
   points: number;
 }
 
 export interface Course {
   id: string;
+  courseNumber: number;
   title: string;
   description: string;
   category: string;

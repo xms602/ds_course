@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { Play, RefreshCw, MessageSquare, Lightbulb, CheckCircle, AlertCircle, Download, ChevronLeft } from 'lucide-react';
 import { projectsData } from '@/data/projectsData';
-import { runPythonCode, generateChart } from '@/lib/pyodide';
+import { runPythonWithChart, runPythonCode } from '@/lib/pyodide';
 import { saveProjectProgress, getProjectProgress, saveChatMessages, getChatMessages, type ChatMessage } from '@/lib/storage';
 
 export default function ProjectDetail() {
@@ -22,25 +22,35 @@ export default function ProjectDetail() {
   const [aiInput, setAiInput] = useState('');
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [isPyodideLoading, setIsPyodideLoading] = useState(true);
-  
+
   useEffect(() => {
     if (!project) {
       navigate('/projects');
       return;
     }
-    
+
     // 加载项目进度
     const progress = getProjectProgress(project.id);
     setCode(progress.code || '');
-    
+
     // 加载聊天记录
     const savedMessages = getChatMessages(project.id);
     setMessages(savedMessages);
-    
-    // 初始化Pyodide
-    import('pyodide').then(() => {
-      setIsPyodideLoading(false);
-    });
+
+    // 初始化 Pyodide（使用我们封装好的 initPyodide，自动加载 pandas/numpy/matplotlib）
+    let cancelled = false;
+    import('@/lib/pyodide')
+      .then(m => m.initPyodide())
+      .then(() => {
+        if (!cancelled) setIsPyodideLoading(false);
+      })
+      .catch(err => {
+        console.error('Pyodide 初始化失败:', err);
+        if (!cancelled) setIsPyodideLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [project, id, navigate]);
   
   if (!project) {
@@ -53,16 +63,14 @@ export default function ProjectDetail() {
     setIsRunning(true);
     setOutput('');
     setChartData(null);
-    
+
     try {
-      const result = await runPythonCode(code);
+      // 一次执行，同时获取文本输出和图表
+      const result = await runPythonWithChart(code);
       if (result.success) {
         setOutput(result.result ? result.result.toString() : '代码执行成功');
-        
-        // 尝试生成图表
-        const chartResult = await generateChart(code);
-        if (chartResult.success) {
-          setChartData(chartResult.chartData);
+        if (result.chartData) {
+          setChartData(result.chartData);
         }
       } else {
         setOutput(`错误: ${result.error}`);

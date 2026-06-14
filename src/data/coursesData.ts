@@ -3,6 +3,7 @@ import { Course } from '@/types';
 export const coursesData: Course[] = [
   {
     id: 'data-analysis-overview',
+    courseNumber: 1,
     title: '数据分析全景与学习路径',
     description: '了解数据分析的价值、全景和学习路径，为后续学习建立认知基础。',
     category: '预习阶段',
@@ -140,6 +141,7 @@ print("Hello, Data Analysis!")
   },
   {
     id: 'python-basics',
+    courseNumber: 2,
     title: 'Python编程基础',
     description: '学习Python编程语言的基础知识，为数据分析打下坚实基础。',
     category: '学习阶段',
@@ -183,7 +185,7 @@ Python有几种基本数据类型：
             id: 'ex1-ch1',
             type: 'coding',
             question: '输出"Hello, Python!"到屏幕',
-            codeTemplate: `# 编写代码输出Hello, Python!
+            codeTemplate: `print("Hello, Python!")
 `,
             correctCode: `print("Hello, Python!")`,
             explanation: '使用print()函数输出字符串。'
@@ -192,7 +194,7 @@ Python有几种基本数据类型：
             id: 'ex2-ch1',
             type: 'coding',
             question: '计算并输出 10 + 20 的结果',
-            codeTemplate: `# 计算10 + 20并输出结果
+            codeTemplate: `print(10 + 20)
 `,
             correctCode: `print(10 + 20)`,
             explanation: '使用print()函数输出算术表达式的结果。'
@@ -257,8 +259,7 @@ point = (3, 4)
             id: 'ex1-ch2',
             type: 'coding',
             question: '创建一个列表，包含数字1, 2, 3，并输出列表',
-            codeTemplate: `# 创建列表并输出
-numbers = 
+            codeTemplate: `numbers = [1, 2, 3]
 print(numbers)
 `,
             correctCode: `numbers = [1, 2, 3]
@@ -339,7 +340,8 @@ while count < 3:
             id: 'ex1-ch3',
             type: 'coding',
             question: '使用for循环输出数字1到5',
-            codeTemplate: `# 使用for循环输出1到5
+            codeTemplate: `for i in range(1, 6):
+    print(i)
 `,
             correctCode: `for i in range(1, 6):
     print(i)`,
@@ -350,8 +352,10 @@ while count < 3:
             type: 'coding',
             question: '使用if判断：如果变量x大于10，输出"大于10"，否则输出"小于等于10"',
             codeTemplate: `x = 15
-# 编写判断代码
-
+if x > 10:
+    print("大于10")
+else:
+    print("小于等于10")
 `,
             correctCode: `x = 15
 if x > 10:
@@ -414,10 +418,9 @@ print(math.sqrt(16))  # 输出: 4.0
             type: 'coding',
             question: '定义一个函数，计算两个数的和并返回',
             codeTemplate: `def add(a, b):
-    # 返回a和b的和
-    
-# 测试
-print(add(3, 5))  # 应输出8
+    return a + b
+
+print(add(3, 5))
 `,
             correctCode: `def add(a, b):
     return a + b
@@ -429,9 +432,7 @@ print(add(3, 5))`,
             id: 'ex2-ch4',
             type: 'coding',
             question: '使用lambda表达式创建一个计算平方的函数',
-            codeTemplate: `# 创建lambda函数计算平方
-square = 
-
+            codeTemplate: `square = lambda x: x ** 2
 print(square(6))
 `,
             correctCode: `square = lambda x: x ** 2
@@ -462,6 +463,7 @@ print(square(6))`,
   },
   {
     id: 'numpy-pandas',
+    courseNumber: 3,
     title: 'NumPy与Pandas数据处理',
     description: '掌握Python数据分析核心库NumPy和Pandas的使用方法。',
     category: '学习阶段',
@@ -472,70 +474,140 @@ print(square(6))`,
       {
         id: 'chapter-1',
         title: 'NumPy数值计算',
-        content: `# NumPy数值计算
+        content: `# NumPy数值计算：数组与向量化运算
 
 ## 什么是NumPy？
 
-NumPy是Python中用于科学计算的核心库，提供高性能的多维数组对象。
+NumPy是Python科学计算的基础库，提供高性能的多维数组对象和向量化运算能力。NumPy的向量化运算比Python原生循环快10-100倍，是数据分析的性能基础。
 
-## 创建数组
+## 核心知识点
+
+- NumPy数组的创建：array()、zeros()、ones()、arange()、linspace()
+- 数组属性：shape、dtype、size、ndim
+- 数组索引与切片：与Python列表类似但支持多维
+- 向量化运算：数组间加减乘除无需循环
+- 常用函数：sum()、mean()、max()、min()、std()
+
+## 创建数组示例
 
 \`\`\`python
 import numpy as np
 
-arr = np.array([1, 2, 3, 4, 5])
-print(f"数组: {arr}")
-print(f"均值: {arr.mean()}")
-print(f"标准差: {arr.std()}")
+# 创建数组
+arr1 = np.array([1, 2, 3, 4, 5])
+arr2 = np.zeros((2, 3))        # 2行3列的零矩阵
+arr3 = np.arange(0, 10, 2)     # [0, 2, 4, 6, 8]
+arr4 = np.linspace(0, 1, 5)    # [0, 0.25, 0.5, 0.75, 1]
+
+print(f"arr1: {arr1}")
+print(f"arr2 形状: {arr2.shape}")
+print(f"arr3: {arr3}")
 \`\`\`
 
-## 数组运算
+## 向量化运算
 
-NumPy数组支持逐元素的数学运算：
+\`\`\`python
+a = np.array([1, 2, 3])
+b = np.array([4, 5, 6])
+print(a + b)   # [5 7 9]
+print(a * b)   # [4 10 18]
+print(a.mean()) # 2.0
+
+# 数组属性
+arr = np.array([[1, 2, 3], [4, 5, 6]])
+print(arr.shape)   # (2, 3)
+print(arr.dtype)   # int64
+print(arr.ndim)    # 2
+\`\`\`
+
+## 数组索引与切片
 
 \`\`\`python
 a = np.array([1, 2, 3, 4])
-print(a * 2)  # 输出: [2, 4, 6, 8]
-print(a + 10)  # 输出: [11, 12, 13, 14]
+print(a[1:3])      # [2 3]
+print(a[0])        # 1
 \`\`\``,
         exercises: [
           {
             id: 'ex1-ch1',
+            type: 'multiple-choice',
+            question: '以下哪个命令可以创建一个从0到9的一维数组？',
+            options: ['np.array(0,9)', 'np.arange(10)', 'np.linspace(0,9)', 'np.ones(10)'],
+            correctAnswer: 'np.arange(10)',
+            explanation: 'np.arange(10) 创建 [0, 1, 2, ..., 9] 的一维数组。np.linspace(0,9) 默认生成50个等间距点。np.ones(10) 生成10个1。'
+          },
+          {
+            id: 'ex2-ch1',
+            type: 'multiple-choice',
+            question: '对于一个形状为(3,4)的二维数组，arr.shape返回什么？',
+            options: ['12', '(3,4)', '3', '4'],
+            correctAnswer: '(3,4)',
+            explanation: 'shape 属性返回一个元组，描述数组每个维度的长度。(3,4)表示3行4列的二维数组。'
+          },
+          {
+            id: 'ex3-ch1',
+            type: 'multiple-choice',
+            question: '以下代码的输出结果是什么？ import numpy as np; a = np.array([1,2,3,4]); print(a[1:3])',
+            options: ['[1 2]', '[2 3]', '[2 3 4]', '报错'],
+            correctAnswer: '[2 3]',
+            explanation: 'NumPy切片 a[1:3] 选取索引1和索引2的元素（左闭右开），即第2、第3个元素 [2, 3]。'
+          },
+          {
+            id: 'ex4-ch1',
             type: 'coding',
-            question: '创建一个NumPy数组[1, 2, 3, 4, 5]，计算并输出其均值',
+            question: '创建一个NumPy数组[1, 2, 3, 4, 5]，计算并输出其均值、总和和标准差',
             codeTemplate: `import numpy as np
 
 # 创建数组
 arr = np.array([1, 2, 3, 4, 5])
 
-# 计算均值
-
-
+# 计算均值、总和、标准差并输出
+print("均值:", arr.mean())
+print("总和:", arr.sum())
+print("标准差:", arr.std())
 `,
             correctCode: `import numpy as np
 
 arr = np.array([1, 2, 3, 4, 5])
-print(arr.mean())`,
-            explanation: '使用.mean()方法计算数组均值。'
+print("均值:", arr.mean())
+print("总和:", arr.sum())
+print("标准差:", arr.std())`,
+            explanation: 'NumPy提供 .mean()、.sum()、.std() 等方法直接计算数组的统计值。'
           },
           {
-            id: 'ex2-ch1',
+            id: 'ex5-ch1',
             type: 'coding',
-            question: '创建两个数组[1,2,3]和[4,5,6]，计算它们对应元素的和',
+            question: '创建两个NumPy数组[10,20,30,40,50]和[1,2,3,4,5]，计算它们的逐元素乘积、总和、平均值和标准差',
             codeTemplate: `import numpy as np
 
-a = np.array([1, 2, 3])
-b = np.array([4, 5, 6])
+arr1 = np.array([10, 20, 30, 40, 50])
+arr2 = np.array([1, 2, 3, 4, 5])
 
-# 计算a + b
+product = arr1 * arr2
+total = np.sum(product)
+mean = np.mean(product)
+std = np.std(product)
 
+print(f"乘积数组: {product}")
+print(f"总和: {total}")
+print(f"平均值: {mean}")
+print(f"标准差: {std}")
 `,
             correctCode: `import numpy as np
 
-a = np.array([1, 2, 3])
-b = np.array([4, 5, 6])
-print(a + b)`,
-            explanation: 'NumPy数组支持逐元素加法运算。'
+arr1 = np.array([10, 20, 30, 40, 50])
+arr2 = np.array([1, 2, 3, 4, 5])
+
+product = arr1 * arr2
+total = np.sum(product)
+mean = np.mean(product)
+std = np.std(product)
+
+print(f"乘积数组: {product}")
+print(f"总和: {total}")
+print(f"平均值: {mean}")
+print(f"标准差: {std}")`,
+            explanation: '向量化运算 arr1 * arr2 对应元素相乘。np.sum()、np.mean()、np.std() 分别计算总和、均值、标准差。'
           }
         ],
         quiz: [
@@ -545,6 +617,7 @@ print(a + b)`,
             question: 'NumPy中创建全零数组的函数是？',
             options: ['np.empty()', 'np.zeros()', 'np.zero()', 'np.blank()'],
             correctAnswer: 'np.zeros()',
+            explanation: 'np.zeros(shape) 根据给定形状创建全零数组，是最常用的初始化函数之一。',
             points: 10
           },
           {
@@ -553,6 +626,21 @@ print(a + b)`,
             question: 'np.array([1,2,3]) * 2 的结果是？',
             options: ['[1,2,3,1,2,3]', '[2,4,6]', '报错', '2'],
             correctAnswer: '[2,4,6]',
+            explanation: 'NumPy的标量运算是广播（broadcasting）机制，对数组中的每个元素分别乘以2。',
+            points: 10
+          },
+          {
+            id: 'q3-ch1',
+            type: 'multiple-choice',
+            question: '下列关于NumPy数组的说法，哪个是错误的？',
+            options: [
+              'NumPy数组的元素可以有不同的数据类型',
+              'arr.shape 返回数组的维度',
+              'arr.sum() 可以计算数组所有元素的总和',
+              'NumPy数组支持多维切片'
+            ],
+            correctAnswer: 'NumPy数组的元素可以有不同的数据类型',
+            explanation: 'NumPy数组（ndarray）是同构数组，所有元素必须是相同的数据类型（dtype），这正是它高性能的原因之一。Python列表才可以存放不同类型。',
             points: 10
           }
         ]
@@ -746,6 +834,7 @@ print(df.groupby("部门")["业绩"].mean())`,
   },
   {
     id: 'data-visualization',
+    courseNumber: 4,
     title: '数据可视化',
     description: '学习使用Matplotlib和Seaborn创建专业的数据可视化图表。',
     category: '学习阶段',
@@ -793,10 +882,9 @@ plt.show()
 x = [1, 2, 3, 4]
 y = [1, 4, 9, 16]
 
-# 绘制折线图
 plt.plot(x, y)
 plt.title("平方数折线图")
-plt.show()
+plt.savefig("line_chart.png", dpi=120)
 print("图表已生成")
 `,
             correctCode: `import matplotlib.pyplot as plt
@@ -806,7 +894,7 @@ y = [1, 4, 9, 16]
 
 plt.plot(x, y)
 plt.title("平方数折线图")
-plt.show()
+plt.savefig("line_chart.png", dpi=120)
 print("图表已生成")`,
             explanation: '使用plt.plot()绘制折线图。'
           }
@@ -916,6 +1004,7 @@ print("饼图已生成")`,
   },
   {
     id: 'data-cleaning',
+    courseNumber: 5,
     title: '数据清洗',
     description: '学习处理缺失值、异常值和重复值，确保数据质量。',
     category: '学习阶段',
@@ -1084,6 +1173,7 @@ print(df_clean)`,
   },
   {
     id: 'sql-basics',
+    courseNumber: 6,
     title: 'SQL数据查询基础',
     description: '学习SQL语言，掌握数据查询和提取的核心技能。',
     category: '学习阶段',
@@ -1233,6 +1323,7 @@ HAVING AVG(salary) > 5000;
   },
   {
     id: 'web-scraping',
+    courseNumber: 7,
     title: '数据采集与爬虫基础',
     description: '学习使用Python进行网络数据采集和数据处理。',
     category: '学习阶段',
@@ -1387,6 +1478,7 @@ print(names)`,
   },
   {
     id: 'business-analysis',
+    courseNumber: 8,
     title: '商务数据分析应用',
     description: '学习如何将数据分析技能应用于实际商业场景。',
     category: '学习阶段',
@@ -1548,6 +1640,7 @@ print(df.groupby('category')['sales'].sum())`,
   },
   {
     id: 'machine-learning-intro',
+    courseNumber: 9,
     title: '机器学习入门',
     description: '学习机器学习基础算法，理解AI在数据分析中的应用。',
     category: '学习阶段',
@@ -1710,6 +1803,7 @@ print(f"预测结果: {y_pred}")`,
   },
   {
     id: 'project-comprehensive',
+    courseNumber: 10,
     title: '综合项目实战',
     description: '通过完整项目，综合运用所学知识解决实际问题。',
     category: '实战阶段',
