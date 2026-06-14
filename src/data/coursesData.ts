@@ -259,8 +259,10 @@ point = (3, 4)
             id: 'ex1-ch2',
             type: 'coding',
             question: '创建一个列表，包含数字1, 2, 3，并输出列表',
-            codeTemplate: `numbers = [1, 2, 3]
+            codeTemplate: `# 创建列表并输出
+numbers = [1, 2, 3]
 print(numbers)
+print("列表长度:", len(numbers))
 `,
             correctCode: `numbers = [1, 2, 3]
 print(numbers)`,
@@ -272,7 +274,8 @@ print(numbers)`,
             question: '创建一个字典，包含name和age两个键值对，并输出name的值',
             codeTemplate: `# 创建字典并输出name
 person = {"name": "Alice", "age": 25}
-
+print("姓名:", person["name"])
+print("年龄:", person["age"])
 `,
             correctCode: `person = {"name": "Alice", "age": 25}
 print(person["name"])`,
@@ -694,8 +697,7 @@ data = {
 df = pd.DataFrame(data)
 
 # 查看前2行
-
-
+print(df.head(2))
 `,
             correctCode: `import pandas as pd
 
@@ -719,8 +721,8 @@ df = pd.DataFrame({
 })
 
 # 筛选成绩>=85的学生
-
-
+result = df[df["成绩"] >= 85]
+print(result)
 `,
             correctCode: `import pandas as pd
 
@@ -797,8 +799,8 @@ df = pd.DataFrame({
 })
 
 # 按部门分组计算平均业绩
-
-
+avg_by_dept = df.groupby("部门")["业绩"].mean()
+print(avg_by_dept)
 `,
             correctCode: `import pandas as pd
 
@@ -966,8 +968,9 @@ sizes = [30, 40, 30]
 labels = ["A", "B", "C"]
 
 # 绘制饼图
-
-plt.show()
+plt.pie(sizes, labels=labels, autopct='%1.1f%%')
+plt.title("比例分布")
+plt.savefig("pie_chart.png", dpi=120)
 print("饼图已生成")
 `,
             correctCode: `import matplotlib.pyplot as plt
@@ -1056,8 +1059,8 @@ df = pd.DataFrame({
 })
 
 # 检测并统计每列缺失值数量
-
-
+print("每列缺失值数量:")
+print(df.isnull().sum())
 `,
             correctCode: `import pandas as pd
 import numpy as np
@@ -1130,7 +1133,7 @@ print("重复行:")
 print(df.duplicated())
 
 # 删除重复行
-df_clean = 
+df_clean = df.drop_duplicates()
 print("去重后:")
 print(df_clean)
 `,
@@ -1372,8 +1375,8 @@ html = "<html><body><h1>数据分析</h1><p>学习Python</p></body></html>"
 soup = BeautifulSoup(html, 'html.parser')
 
 # 提取h1标签的文本
-
-
+title = soup.find('h1').text
+print("标题:", title)
 `,
             correctCode: `from bs4 import BeautifulSoup
 
@@ -1442,8 +1445,8 @@ html = "<div class='name'>Alice</div><div class='name'>Bob</div>"
 soup = BeautifulSoup(html, 'html.parser')
 
 # 使用CSS选择器提取所有class为name的元素
-
-
+names = [n.text for n in soup.select('.name')]
+print("提取结果:", names)
 `,
             correctCode: `from bs4 import BeautifulSoup
 
@@ -1521,8 +1524,9 @@ print(f"标准差: {np.std(data)}")
 sales = [120, 150, 180, 200, 170, 160, 190]
 
 # 计算均值
-
+mean_value = np.mean(sales)
 # 计算中位数
+median_value = np.median(sales)
 
 print(f"均值: {mean_value}")
 print(f"中位数: {median_value}")
@@ -1603,8 +1607,8 @@ df = pd.DataFrame({
 })
 
 # 按category分组计算总销售额
-
-
+total_by_category = df.groupby('category')['sales'].sum()
+print(total_by_category)
 `,
             correctCode: `import pandas as pd
 
@@ -1756,12 +1760,15 @@ y = np.array([2, 4, 6, 8, 10])
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # 训练模型
-
+model = LinearRegression()
+model.fit(X_train, y_train)
 
 # 预测
-
+y_pred = model.predict(X_test)
 
 print(f"预测结果: {y_pred}")
+print(f"模型系数: {model.coef_}")
+print(f"截距: {model.intercept_}")
 `,
             correctCode: `from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
@@ -1863,9 +1870,14 @@ data = {
 df = pd.DataFrame(data)
 
 # 按月分组计算总销售额
-
-
+monthly_sales = df.groupby('month')['sales'].sum()
+print("月度总销售额:")
 print(monthly_sales)
+
+# 按产品分组
+product_sales = df.groupby('product')['sales'].sum()
+print("\n产品总销售额:")
+print(product_sales)
 `,
             correctCode: `import pandas as pd
 import numpy as np

@@ -13,14 +13,41 @@
 export interface PyodideInterface {
   runPythonAsync: (code: string) => Promise<any>;
   runPython: (code: string) => any;
-  loadPackage: (names: string[]) => Promise<void>;
+  loadPackage: (names: string[] | string, options?: any) => Promise<void>;
   globals: any;
+  loadedPackages: string[];
 }
 
 // Pyodide CDN 版本（稳定版，与 jsDelivr 兼容）
 const PYODIDE_VERSION = 'v0.26.4';
 const PYODIDE_CDN = `https://cdn.jsdelivr.net/pyodide/${PYODIDE_VERSION}/full/`;
 const PRELOAD_PACKAGES = ['numpy', 'pandas', 'matplotlib'];
+
+// ==================== 智能包检测 ====================
+// 根据用户代码中的 import 语句，自动检测并加载所需的包
+const PYODIDE_PACKAGE_MAP: Record<string, string> = {
+  // scikit-learn
+  'sklearn': 'scikit-learn',
+  'sklearn.linear_model': 'scikit-learn',
+  'sklearn.model_selection': 'scikit-learn',
+  'sklearn.metrics': 'scikit-learn',
+  // beautifulsoup
+  'bs4': 'beautifulsoup4',
+  'beautifulsoup4': 'beautifulsoup4',
+  // 其他常见包
+  'requests': 'requests',
+  'scipy': 'scipy',
+  'sympy': 'sympy',
+  'lxml': 'lxml',
+  'nltk': 'nltk',
+  'pillow': 'pillow',
+  'PIL': 'pillow',
+  'networkx': 'networkx',
+  'joblib': 'joblib',
+  'pytest': 'pytest',
+  'sqlalchemy': 'sqlalchemy',
+  'jinja2': 'jinja2',
+};
 
 // ==================== 内部状态 ====================
 let pyodideInstance: PyodideInterface | null = null;
@@ -139,6 +166,50 @@ export function isPyodideReady(): boolean {
   return pyodideInstance !== null;
 }
 
+// ==================== 智能包检测 ====================
+/**
+ * 从Python代码中提取import语句，检测需要加载的包
+ */
+function detectPackages(code: string): string[] {
+  const packages = new Set<string>();
+  // 匹配 "import xxx" 和 "from xxx import"
+  const importRegex = /(?:import|from)\s+([a-zA-Z_][a-zA-Z0-9_.]*)/g;
+  let match;
+  while ((match = importRegex.exec(code)) !== null) {
+    const fullModule = match[1];
+    const topLevel = fullModule.split('.')[0];
+    if (PYODIDE_PACKAGE_MAP[topLevel]) {
+      packages.add(PYODIDE_PACKAGE_MAP[topLevel]);
+    } else if (PYODIDE_PACKAGE_MAP[fullModule]) {
+      packages.add(PYODIDE_PACKAGE_MAP[fullModule]);
+    }
+  }
+  return Array.from(packages);
+}
+
+/**
+ * 智能加载用户代码所需的包
+ */
+async function autoLoadPackages(py: PyodideInterface, code: string): Promise<string[]> {
+  const needed = detectPackages(code);
+  if (needed.length === 0) return [];
+
+  // 检查哪些包还没加载
+  const loaded = new Set<string>((py as any)._micropip ? (py as any)._loaded_packages || [] : []);
+  const toLoad = needed.filter(p => !loaded.has(p));
+
+  if (toLoad.length > 0) {
+    console.log(`[Pyodide] 正在加载包: ${toLoad.join(', ')}`);
+    try {
+      await py.loadPackage(toLoad);
+      console.log(`[Pyodide] ✓ 包加载完成: ${toLoad.join(', ')}`);
+    } catch (e) {
+      console.warn(`[Pyodide] 部分包加载失败: ${e}`);
+    }
+  }
+  return needed;
+}
+
 // ==================== 代码执行 ====================
 /**
  * 执行 Python 代码，捕获 stdout 和可选图表
@@ -154,6 +225,9 @@ export async function runPythonWithChart(code: string) {
         chartData: undefined,
       };
     }
+
+    // 步骤 0: 智能检测并加载所需包
+    await autoLoadPackages(py, code);
 
     // 步骤 1: 捕获 stdout/stderr
     await py.runPythonAsync(`
