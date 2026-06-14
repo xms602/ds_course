@@ -17,7 +17,10 @@ export default function Profile() {
   
   const getProgressPercent = (courseId: string) => {
     const progress = getCourseProgress(courseId);
-    return Math.round((progress.completedChapters.length / courses.find(c => c.id === courseId)?.chapters.length || 1) * 100);
+    const course = courses.find(c => c.id === courseId);
+    const totalChapters = course?.chapters.length || 0;
+    if (totalChapters === 0) return 0;
+    return Math.round(progress.completedChapters.length / totalChapters * 100);
   };
   
   const coursesInProgress = courses.filter(course => {

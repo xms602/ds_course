@@ -1,192 +1,267 @@
-import { loadPyodide, type PyodideInterface } from 'pyodide';
 
-let pyodide: PyodideInterface | null = null;
+/**
+ * Python 环境（Pyodide）管理器
+ * =============================================================
+ * 采用 CDN 动态加载方式，不依赖 Vite / npm 包打包问题：
+ *   1. 动态创建 <script> 标签加载 pyodide.js
+ *   2. 通过 window.loadPyodide() 初始化
+ *   3. 支持 numpy / pandas / matplotlib 等常用包
+ * =============================================================
+ */
+
+// Pyodide 公开接口（minimal type，避免依赖具体版本）
+export interface PyodideInterface {
+  runPythonAsync: (code: string) => Promise<any>;
+  runPython: (code: string) => any;
+  loadPackage: (names: string[]) => Promise<void>;
+  globals: any;
+}
+
+// Pyodide CDN 版本（稳定版，与 jsDelivr 兼容）
+const PYODIDE_VERSION = 'v0.26.4';
+const PYODIDE_CDN = `https://cdn.jsdelivr.net/pyodide/${PYODIDE_VERSION}/full/`;
+const PRELOAD_PACKAGES = ['numpy', 'pandas', 'matplotlib'];
+
+// ==================== 内部状态 ====================
+let pyodideInstance: PyodideInterface | null = null;
 let initPromise: Promise<PyodideInterface> | null = null;
+let scriptLoading: Promise<void> | null = null;
 
-// Pyodide 需要从 CDN 加载 .wasm 和 Python 标准库文件。
-// 使用 jsdelivr 提供的稳定 CDN。
-const PYODIDE_CDN = 'https://cdn.jsdelivr.net/pyodide/v0.29.3/full/';
+// ==================== 加载 pyodide.js 脚本 ====================
+function ensureScriptLoaded(): Promise<void> {
+  // 如果脚本已经加载并且 window.loadPyodide 可用
+  if ((window as any).loadPyodide) {
+    return Promise.resolve();
+  }
+  // 如果正在加载中，返回同一个 Promise
+  if (scriptLoading) {
+    return scriptLoading;
+  }
+  // 首次加载：动态创建 <script> 标签
+  scriptLoading = new Promise<void>((resolve, reject) => {
+    const existing = document.getElementById('pyodide-loader-script');
+    if (existing && (window as any).loadPyodide) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'pyodide-loader-script';
+    script.src = `${PYODIDE_CDN}pyodide.js`;
+    script.async = true;
+    script.onload = () => {
+      if ((window as any).loadPyodide) {
+        console.log('[Pyodide] ✅ pyodide.js 脚本已加载');
+        resolve();
+      } else {
+        reject(new Error('pyodide.js 已加载但 loadPyodide 未找到'));
+      }
+    };
+    script.onerror = () => {
+      scriptLoading = null;
+      reject(new Error(`无法加载 pyodide.js（${PYODIDE_CDN}），请检查网络连接`));
+    };
+    document.head.appendChild(script);
+  });
+  return scriptLoading;
+}
 
+// ==================== 初始化主函数 ====================
 export async function initPyodide(): Promise<PyodideInterface> {
-  if (pyodide) return pyodide;
+  // 如果已经初始化完成，直接返回
+  if (pyodideInstance) return pyodideInstance;
+
+  // 如果正在初始化，返回现有 Promise
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
     try {
-      console.log('[Pyodide] 开始初始化 Python 环境...');
-      pyodide = await loadPyodide({
+      console.log('[Pyodide] 🔄 开始初始化 Python 环境...');
+
+      // 步骤 1: 加载 pyodide.js 脚本
+      await ensureScriptLoaded();
+
+      // 步骤 2: 调用 window.loadPyodide 初始化
+      const loadFn = (window as any).loadPyodide;
+      if (!loadFn) {
+        throw new Error('loadPyodide 函数不可用');
+      }
+
+      pyodideInstance = await loadFn({
         indexURL: PYODIDE_CDN,
       });
-      console.log('[Pyodide] 核心已加载，正在安装 pandas/numpy/matplotlib...');
 
-      await pyodide.loadPackage(['pandas', 'numpy', 'matplotlib']);
-      console.log('[Pyodide] 包已安装，正在配置 matplotlib...');
+      console.log('[Pyodide] ✅ 核心已加载，开始安装科学计算包...');
 
-      // 初始化 matplotlib（Agg 模式，非交互式）
-      // 并预先导入常用模块，后续 runPython 可以直接使用
-      pyodide.runPython(`
+      // 步骤 3: 安装 numpy, pandas, matplotlib
+      await pyodideInstance!.loadPackage(PRELOAD_PACKAGES);
+
+      console.log('[Pyodide] ✅ 包已安装，正在配置 Python 环境...');
+
+      // 步骤 4: 配置 matplotlib + 预导入常用库
+      await pyodideInstance!.runPythonAsync(`
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-plt.ioff()
+import warnings
 
-# 中文字体配置
-try:
-    import matplotlib.font_manager as fm
-    _available = [f.name for f in fm.fontManager.ttflist]
-    _preferred = ['Microsoft YaHei', 'SimHei', 'Heiti SC',
-                   'PingFang HK', 'Noto Sans CJK SC',
-                   'WenQuanYi Micro Hei', 'WenQuanYi Zen Hei',
-                   'Arial Unicode MS', 'DejaVu Sans']
-    for _fn in _preferred:
-        if _fn in _available:
-            matplotlib.rcParams['font.sans-serif'] = [_fn] + matplotlib.rcParams['font.sans-serif']
-            break
-except Exception:
-    pass
-matplotlib.rcParams['axes.unicode_minus'] = False
-matplotlib.rcParams['figure.dpi'] = 100
+# 配置 matplotlib 字体以避免中文显示警告
+plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['figure.dpi'] = 100
+# 使用系统可用字体，抑制字体缺失警告
+plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'STIXGeneral', 'Arial Unicode MS']
+plt.rcParams['font.family'] = 'sans-serif'
+# 忽略字体相关警告
+warnings.filterwarnings('ignore', message='Glyph.*missing.*font')
 
-# 预导入常用库，用户代码中可以直接用
 import numpy as np
 import pandas as pd
-import base64
 import io
 import sys
-print('[Python] 环境就绪。已导入: numpy as np, pandas as pd, matplotlib.pyplot as plt')
+import base64
+
+print('[Python] ✅ 环境就绪。已导入: numpy as np, pandas as pd, matplotlib.pyplot as plt')
 `);
-      console.log('[Pyodide] 初始化完成 ✓');
-      return pyodide;
+
+      console.log('[Pyodide] ✅ 初始化完成！');
+      return pyodideInstance!;
     } catch (error) {
-      console.error('[Pyodide] 初始化失败:', error);
-      pyodide = null;
+      console.error('[Pyodide] ❌ 初始化失败:', error);
+      pyodideInstance = null;
       initPromise = null;
       throw error;
     }
   })();
+
   return initPromise;
 }
 
 export function isPyodideReady(): boolean {
-  return pyodide !== null;
+  return pyodideInstance !== null;
 }
 
+// ==================== 代码执行 ====================
 /**
- * 使用 io.StringIO 捕获 stdout/stderr，执行 Python 代码
- * 返回文本输出 + 可选的 base64 PNG 图表
+ * 执行 Python 代码，捕获 stdout 和可选图表
  */
 export async function runPythonWithChart(code: string) {
   try {
     const py = await initPyodide();
     if (!py) {
-      return { success: false, error: 'Python 环境未初始化，请刷新页面' };
+      return {
+        success: false,
+        result: '',
+        error: 'Python 环境未初始化',
+        chartData: undefined,
+      };
     }
 
-    // 确保在 Python 环境中有基础的工具函数
-    py.runPython(`
-import sys, io, base64
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-plt.ioff()
-
-# stdout 捕获器
-__captured_out = io.StringIO()
-__captured_err = io.StringIO()
-__orig_stdout = sys.stdout
-__orig_stderr = sys.stderr
+    // 步骤 1: 捕获 stdout/stderr
+    await py.runPythonAsync(`
+import sys, io
+_captured_stdout = io.StringIO()
+_captured_stderr = io.StringIO()
+_orig_stdout = sys.stdout
+_orig_stderr = sys.stderr
+sys.stdout = _captured_stdout
+sys.stderr = _captured_stderr
 `);
 
-    // 步骤 1：重定向 stdout，执行用户代码
-    let execErrorMsg = '';
+    // 步骤 2: 执行用户代码
+    let execError: string | null = null;
     try {
-      py.runPython(`
-sys.stdout = __captured_out
-sys.stderr = __captured_err
-`);
       await py.runPythonAsync(code);
     } catch (e: any) {
-      execErrorMsg = String(e?.message || e);
-      // 捕获异常的 traceback（包含在 stderr 中）
-    } finally {
-      // 恢复 stdout
-      py.runPython(`
-sys.stdout = __orig_stdout
-sys.stderr = __orig_stderr
-`);
+      execError = e?.message || String(e);
+      console.warn('[Pyodide] Python 执行异常:', execError);
     }
 
-    // 步骤 2：获取 stdout 输出
-    const stdoutResult = py.runPython(`__captured_out.getvalue()`) as string;
-    const stderrResult = py.runPython(`__captured_err.getvalue()`) as string;
-    // 清空 buffer 避免下次执行混合
-    py.runPython(`
-__captured_out.close()
-__captured_err.close()
-__captured_out = io.StringIO()
-__captured_err = io.StringIO()
+    // 步骤 3: 恢复 stdout 并提取输出
+    await py.runPythonAsync(`
+sys.stdout = _orig_stdout
+sys.stderr = _orig_stderr
+_stdout_result = _captured_stdout.getvalue()
+_stderr_result = _captured_stderr.getvalue()
+_captured_stdout.close()
+_captured_stderr.close()
 `);
 
-    // 步骤 3：尝试保存当前活动图表为 base64 PNG
+    // 从 Python globals 中读取结果
+    let stdoutResult = '';
+    let stderrResult = '';
+    try {
+      // 从 Python globals 中读取字符串变量
+      const pyStdout = py.globals.get('_stdout_result');
+      const pyStderr = py.globals.get('_stderr_result');
+      stdoutResult = String(pyStdout || '');
+      stderrResult = String(pyStderr || '');
+      // 注意：pyodide 返回的字符串对象可能是 proxy，用完后销毁
+      if (typeof pyStdout?.destroy === 'function') pyStdout.destroy();
+      if (typeof pyStderr?.destroy === 'function') pyStderr.destroy();
+    } catch (err) {
+      console.warn('[Pyodide] 提取输出失败:', err);
+    }
+
+    // 步骤 4: 尝试提取 matplotlib 图表
     let chartData: string | undefined = undefined;
     try {
-      const b64 = py.runPython(`
+      const hasFigure = py.runPython(`
+import matplotlib.pyplot as plt
+_has_fig = len(plt.get_fignums()) > 0
+_has_fig
+`);
+      if (hasFigure) {
+        const b64 = py.runPython(`
 import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
-
-_figs = plt.get_fignums()
-if _figs:
-    _current_fig = plt.gcf()
-    _buf = BytesIO()
-    try:
-        _current_fig.savefig(_buf, format='png', bbox_inches='tight', dpi=120)
-        _buf.seek(0)
-        _result = base64.b64encode(_buf.read()).decode('utf-8')
-    except Exception:
-        _result = ''
-    plt.close('all')
-else:
-    _result = ''
-_result
+_buf = BytesIO()
+_cur = plt.gcf()
+_cur.savefig(_buf, format='png', bbox_inches='tight', dpi=120)
+_buf.seek(0)
+_b64 = base64.b64encode(_buf.read()).decode('utf-8')
+plt.close('all')
+_b64
 `);
-      if (b64 && String(b64).trim()) {
-        chartData = `data:image/png;base64,${b64}`;
+        if (b64 && String(b64).trim()) {
+          chartData = `data:image/png;base64,${String(b64)}`;
+        }
       }
-    } catch (chartErr: any) {
-      console.warn('图表提取失败（非致命）:', chartErr);
+    } catch (chartErr) {
+      console.warn('[Pyodide] 图表提取失败（非致命）:', chartErr);
     }
 
-    // 步骤 4：返回结果
-    const combinedOutput = [stdoutResult, stderrResult]
+    // 步骤 5: 组合输出
+    const combined = [stdoutResult, stderrResult]
       .map(s => (s || '').toString().trim())
       .filter(Boolean)
       .join('\n');
 
-    if (execErrorMsg) {
+    if (execError) {
       return {
         success: false,
-        result: combinedOutput || '',
-        error: execErrorMsg,
+        result: combined || '',
+        error: execError,
         chartData,
       };
     }
 
     return {
       success: true,
-      result: combinedOutput || '代码执行成功（无输出）',
+      result: combined || '代码执行成功（无输出）',
       chartData,
     };
   } catch (error: any) {
-    console.error('[Pyodide] 执行异常:', error);
+    console.error('[Pyodide] ❌ 执行异常:', error);
     return {
       success: false,
+      result: '',
       error: error?.message || String(error),
+      chartData: undefined,
     };
   }
 }
 
-/** 纯代码执行（不含图表提取），保留原 API */
+/** 纯代码执行（与 runPythonWithChart 等价，兼容旧 API） */
 export async function runPythonCode(code: string) {
   return runPythonWithChart(code);
 }
